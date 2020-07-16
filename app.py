@@ -292,6 +292,7 @@ def getAllWishes():
     try:
         if session.get('user'):
 
+
             conn = mysql.connect()
             cursor = conn.cursor()
             cursor.callproc('sp_GetAllWishes')
@@ -303,9 +304,9 @@ def getAllWishes():
                     'Id': wish[0],
                     'Title': wish[1],
                     'Description': wish[2],
-                    'FilePath': wish[3]}
+                    'FilePath': wish[3],
+                    'Like': wish[4]}
                 wishes_dict.append(wish_dict)
-
             return json.dumps(wishes_dict)
         else:
             return render_template('error.html', error='Unauthorized Access')
