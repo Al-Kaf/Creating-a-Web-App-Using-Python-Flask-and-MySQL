@@ -1,5 +1,8 @@
 from flask import Flask, render_template, request, json, session, redirect
 from flaskext.mysql import MySQL
+import os
+import uuid
+
 
 app = Flask(__name__)
 app.secret_key = 'alkaf'
@@ -11,6 +14,7 @@ app.config['MYSQL_DATABASE_USER'] = 'root'
 app.config['MYSQL_DATABASE_PASSWORD'] = '123456'
 app.config['MYSQL_DATABASE_DB'] = 'BucketList'
 app.config['MYSQL_DATABASE_HOST'] = 'localhost'
+app.config['UPLOAD_FOLDER'] = 'static/Uploads'
 mysql.init_app(app)
 
 # Default setting
@@ -112,13 +116,27 @@ def showAddWish():
 def addWish():
     try:
         if session.get('user'):
+            if request.form.get('filePath') is None:
+                _filePath = ''
+            else:
+                _filePath = request.form.get('filePath')
+
+            if request.form.get('private') is None:
+                _private = 0
+            else:
+                _private = 1
+
+            if request.form.get('done') is None:
+                _done = 0
+            else:
+                _done = 1
             _title = request.form['inputTitle']
             _description = request.form['inputDescription']
             _user = session.get('user')
 
             conn = mysql.connect()
             cursor = conn.cursor()
-            cursor.callproc('sp_addWish', (_title, _description, _user))
+            cursor.callproc('sp_addWish',(_title,_description,_user,_filePath,_private,_done))
             data = cursor.fetchall()
             if len(data) is 0:
                 conn.commit()
@@ -190,7 +208,7 @@ def getWishById():
             result = cursor.fetchall()
 
             wish = []
-            wish.append({'Id': result[0][0], 'Title': result[0][1], 'Description': result[0][2]})
+            wish.append({'Id':result[0][0],'Title':result[0][1],'Description':result[0][2],'FilePath':result[0][3],'Private':result[0][4],'Done':result[0][5]})
             conn.close()
             return json.dumps(wish)
         else:
@@ -207,10 +225,13 @@ def updateWish():
             _title = request.form['title']
             _description = request.form['description']
             _wish_id = request.form['id']
+            _filePath = request.form['filePath']
+            _isPrivate = request.form['isPrivate']
+            _isDone = request.form['isDone']
 
             conn = mysql.connect()
             cursor = conn.cursor()
-            cursor.callproc('sp_updateWish', (_title, _description, _wish_id, _user))
+            cursor.callproc('sp_updateWish',(_title,_description,_wish_id,_user,_filePath,_isPrivate,_isDone))
             data = cursor.fetchall()
 
             if len(data) is 0:
@@ -249,6 +270,15 @@ def deleteWish():
         return json.dumps({'status': str(e)})
 
 
+
+@app.route('/upload', methods=['GET', 'POST'])
+def upload():
+    if request.method == 'POST':
+        file = request.files['file']
+        extension = os.path.splitext(file.filename)[1]
+        f_name = str(uuid.uuid4()) + extension
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], f_name))
+        return json.dumps({'filename': f_name})
 
 
 if __name__ == "__main__":
