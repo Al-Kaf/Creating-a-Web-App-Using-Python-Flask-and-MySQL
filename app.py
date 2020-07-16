@@ -82,7 +82,7 @@ def validateLogin():
             if str(data[0][3])== _password:
                 session['user'] = data[0][0]
                 con.close()
-                return redirect('/userHome')
+                return redirect('/showDashboard')
             else:
                 con.close()
                 return render_template('error.html', error='Wrong Email address or Password.')
@@ -279,6 +279,67 @@ def upload():
         f_name = str(uuid.uuid4()) + extension
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], f_name))
         return json.dumps({'filename': f_name})
+
+
+
+@app.route('/showDashboard')
+def showDashboard():
+    return render_template('dashboard.html')
+
+
+@app.route('/getAllWishes')
+def getAllWishes():
+    try:
+        if session.get('user'):
+
+            conn = mysql.connect()
+            cursor = conn.cursor()
+            cursor.callproc('sp_GetAllWishes')
+            result = cursor.fetchall()
+
+            wishes_dict = []
+            for wish in result:
+                wish_dict = {
+                    'Id': wish[0],
+                    'Title': wish[1],
+                    'Description': wish[2],
+                    'FilePath': wish[3]}
+                wishes_dict.append(wish_dict)
+
+            return json.dumps(wishes_dict)
+        else:
+            return render_template('error.html', error='Unauthorized Access')
+    except Exception as e:
+        return render_template('error.html', error=str(e))
+
+
+@app.route('/addUpdateLike', methods=['POST'])
+def addUpdateLike():
+    try:
+        if session.get('user'):
+            _wishId = request.form['wish']
+            _like = request.form['like']
+            _user = session.get('user')
+
+            conn = mysql.connect()
+            cursor = conn.cursor()
+            cursor.callproc('sp_AddUpdateLikes', (_wishId, _user, _like))
+            data = cursor.fetchall()
+
+            if len(data) is 0:
+                conn.commit()
+                conn.close()
+                return json.dumps({'status': 'OK'})
+            else:
+                conn.close()
+                return render_template('error.html', error='An error occurred!')
+
+        else:
+            return render_template('error.html', error='Unauthorized Access')
+    except Exception as e:
+        return render_template('error.html', error=str(e))
+
+
 
 
 if __name__ == "__main__":
